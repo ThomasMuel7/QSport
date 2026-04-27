@@ -1,0 +1,4 @@
+MATCH_LABEL,BSD_EVENT_ID,event_id,event_date,home_team,away_team,home_team_id,away_team_id,home_rest_days,away_rest_days,rest_days_diff_a_minus_b,home_starters_count,away_starters_count,home_load_minutes_21d,away_load_minutes_21d,load_minutes_diff_a_minus_b,deplacement_km,decalage_horaire_heures
+OL vs Rennes,2048,2048,2026-05-03T18:45:00Z,Olympique Lyonnais,Stade Rennais,100,97,8,7,1.0,11,11,191.72727272727272,133.72727272727272,58.0,570.8570640108768,0.0
+Tondela vs FC alverca,580,580,2026-02-13T20:45:00Z,Tondela,FC Alverca,32,30,6,5,1.0,11,11,215.8181818181818,204.63636363636363,11.181818181818187,197.70393360224992,0.0
+Osasuna vs Betis,997,997,2026-04-12T12:00:00Z,Osasuna,Real Betis,58,56,6,3,3.0,11,11,73.81818181818181,191.54545454545453,-117.72727272727272,708.6487702505416,0.0
