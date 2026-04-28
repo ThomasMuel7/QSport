@@ -10,6 +10,8 @@ from zoneinfo import ZoneInfo
 # re + unicodedata: normalisation robuste des noms (accents, ponctuation, variantes).
 import re
 import unicodedata
+import logging
+logging.basicConfig(level=logging.WARNING)
 
 # pandas: structure de sortie demandée (DataFrame).
 import pandas as pd
@@ -23,6 +25,9 @@ from timezonefinder import TimezoneFinder
 
 # URL de base de l'API BSD (sports.bzzoiro.com).
 BSD_BASE_URL = "https://sports.bzzoiro.com/api"
+
+# Logger module
+logger = logging.getLogger(__name__)
 
 
 # ----------------------------
@@ -189,9 +194,24 @@ class BSDClient:
         try:
             return self._get(f"predicted-lineup/{event_id}/")
         except requests.HTTPError as exc:
-            status_code = exc.response.status_code if exc.response is not None else None
+            resp = exc.response
+            status_code = resp.status_code if resp is not None else None
+            # Pas de lineup prédite
             if status_code == 404:
                 return None
+            # Cas fréquent: 400 Bad Request -> log du contenu pour diagnostic et continuer
+            if status_code == 400 and resp is not None:
+                try:
+                    content = resp.json()
+                except Exception:
+                    content = resp.text
+                logger.warning(
+                    "predicted-lineup 400 pour event %s: %s",
+                    event_id,
+                    content,
+                )
+                return None
+            # sinon ré-élever
             raise
 
     def get_team_players(self, team_id: int) -> List[Dict[str, Any]]:
@@ -737,6 +757,36 @@ def compute_fatigue_dataframe(
 
     return fatigue_df
 
+
+
+def simple_compute_fatigue(
+    api_key: str,
+    matches_df: pd.DataFrame,
+    output_csv_path: str = "data/fatigue.csv",
+) -> pd.DataFrame:
+    """
+    Interface simplifiée pour calculer les métriques de fatigue.
+    
+    Utilise par défaut la colonne 'id' du DataFrame et timezone UTC.
+    
+    Args:
+        api_key: Clé API BSD
+        matches_df: DataFrame contenant au minimum une colonne 'id'
+        output_csv_path: Chemin de sauvegarde du CSV (par défaut: data/fatigue.csv)
+    
+    Returns:
+        DataFrame avec les métriques de fatigue
+    
+    Example:
+        >>> fatigue = simple_compute_fatigue(TOKEN, pl_events)
+    """
+    return compute_fatigue_dataframe(
+        api_key=api_key,
+        matches_df=matches_df,
+        event_id_column="id",
+        tz="UTC",
+        output_csv_path=output_csv_path,
+    )
 
 
 if __name__ == "__main__":
