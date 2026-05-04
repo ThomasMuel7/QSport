@@ -34,7 +34,6 @@ def get_match_odds(sport_key: str, team_a: str, team_b: str = "") -> list[dict]:
         return [{"error": f"Erreur API ({response.status_code}): {response.text}"}]
         
     data = response.json()
-    
     # Savoir si on doit chercher une cote pour le match nul
     is_soccer = "soccer" in sport_key
     
@@ -89,9 +88,9 @@ def _flatten_odds(data: list, is_soccer: bool) -> pd.DataFrame:
 def _get_tennis_keys() -> list[dict]:
     url = f'https://api.the-odds-api.com/v4/sports/?apiKey={ODDS_API_KEY}'
     response = requests.get(url)
-    
     if response.status_code == 200:
         data = response.json()
+        print(data)
         # On filtre pour ne renvoyer que le tennis à l'agent pour ne pas surcharger son contexte
         active_tennis = [{"name" : sport['title'], "key": sport['key']} for sport in data if 'tennis' in sport['group'].lower()]
         return active_tennis
