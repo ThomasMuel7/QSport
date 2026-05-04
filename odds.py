@@ -18,13 +18,43 @@ SPORTS_MAPPING = {
 }
 
 def get_match_odds(sport_key: str, team_a: str, team_b: str = "") -> list[dict]:
-    """
-    Outil pour récupérer les cotes (h2h) d'un match spécifique.
-    Idéal pour un Agent IA. Retourne une liste de dictionnaires.
-    
-    :param sport_key: Clé du sport (ex: 'basketball_nba', 'soccer_epl').
-    :param team_a: Nom de l'équipe à domicile (ou une partie du nom).
-    :param team_b: Nom de l'équipe à l'extérieur (ou une partie du nom).
+    """Récupère les cotes head-to-head (H2H) pour un ou plusieurs bookmakers.
+
+        Usage attendu pour un agent IA
+        - Entrée (args):
+            - ``sport_key`` (str): clé de la compétition telle que renvoyée par l'API
+                (ex: "basketball_nba", "soccer_france_ligue_one"). L'agent doit
+                appeler `show_comp_keys()` pour découvrir les clés actives.
+            - ``team_a`` (str): chaîne partielle ou entière correspondant à l'équipe
+                domicile recherchée (ex: "Paris SG", "Lakers"). Recherche insensible
+                à la casse.
+            - ``team_b`` (str, optionnel): chaîne partielle pour l'équipe extérieure.
+
+        Comportement
+        - Interroge l'API The Odds API en mode ``markets=h2h`` et transforme la
+            réponse en une liste de dictionnaires, un par bookmaker/match.
+        - Filtre les résultats pour ne garder que les lignes contenant ``team_a``
+            (et ``team_b`` si fourni) dans la colonne "Match".
+
+        Sortie (retour): ``list[dict]`` — chaque dictionnaire contient au minimum :
+            - ``Match`` (str): "Home vs Away" (ex: "Paris SG vs Lyon").
+            - ``Date`` (str): timestamp de début du match tel que fourni par l'API.
+            - ``Bookmaker`` (str): nom du bookmaker.
+            - ``Cote Home (1)`` (float|None): cote pour l'équipe à domicile.
+            - ``Cote Away (2)`` (float|None): cote pour l'équipe extérieure.
+            - ``Cote Draw (X)`` (float|None): présente seulement si le sport gère le
+                match nul (p.ex. football).
+
+        En cas d'erreur ou d'absence de données, la fonction renvoie une liste
+        contenant un dictionnaire d'erreur/message, par exemple :
+            - ``[{"error": "Erreur API (401): ..."}]``
+            - ``[{"message": "Aucun match trouvé pour cet/ces équipe(s)."}]``
+
+        Remarques pour l'agent
+        - L'agent doit normaliser ou fuzzy-matcher les noms d'équipe avant appel
+            si nécessaire (la fonction utilise une recherche simple par substring).
+        - Ne pas partager la clé API dans les logs. Si ``ODDS_API_KEY`` est vide,
+            la requête retournera une erreur de l'API.
     """
 
     url = f'https://api.the-odds-api.com/v4/sports/{sport_key}/odds/?apiKey={ODDS_API_KEY}&regions=eu&markets=h2h'
@@ -90,15 +120,28 @@ def _get_tennis_keys() -> list[dict]:
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
-        print(data)
-        # On filtre pour ne renvoyer que le tennis à l'agent pour ne pas surcharger son contexte
         active_tennis = [{"name" : sport['title'], "key": sport['key']} for sport in data if 'tennis' in sport['group'].lower()]
         return active_tennis
     return [{"error": "Impossible de récupérer les sports."}]
 
 def show_comp_keys() -> list[dict]:
-    """
-    Outil pour l'IA : Permet de récupérer la liste de toutes les compétitions actives en ce moment.
-    L'agent doit utiliser cette liste pour trouver la bonne 'key' d'une compétition.
+    """Renvoie une liste de compétitions utiles pour l'agent.
+
+        But
+        - Fournir à l'agent un sous-ensemble exploitable des sports/compétitions
+            et leurs clés (`key`) à utiliser dans ``get_match_odds``.
+
+        Format de retour
+        - ``list[dict]`` avec des éléments de la forme :
+                - ``{"name": <str>, "key": <str>}``
+            ou, en cas d'erreur :
+                - ``[{"error": "Impossible de récupérer les sports."}]``
+
+        Exemple
+        - ``[{"name": "ATP Men", "key": "tennis_atp"}, {"name": "NBA", "key": "basketball_nba"}]``
+
+        Remarques
+        - Cette fonction combine les clés locales (``SPORTS_MAPPING``) et les
+            compétitions de tennis actives récupérées via l'API.
     """
     return _get_tennis_keys() + [{"name": name, "key": key} for name, key in SPORTS_MAPPING.items()]
