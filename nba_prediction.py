@@ -4,13 +4,20 @@ nba_predictor.py — Q-Sport NBA Prediction Engine
 Fichier centralisé pour la prédiction de matchs NBA.
 Utilisable directement par un agent LLM ou en ligne de commande.
 
+Les blessés sont récupérés AUTOMATIQUEMENT depuis NBA.com — 
+aucune information manuelle n'est nécessaire.
+
 Usage agent :
     from nba_predictor import NBAPredictor
     predictor = NBAPredictor()
-    result = predictor.predict("Lakers vs Warriors ce soir, LeBron out")
+    predictor.predict_game_auto("LAL", "GSW")           # blessés auto
+    predictor.predict_game_auto("OKC", "LAL", is_playoffs=1)
+    predictor.compare_models("BOS", "MIA")              # 3 modèles
 
-Usage direct :
-    python nba_predictor.py --home LAL --away GSW --model qnn
+Usage ligne de commande :
+    python nba_predictor.py --home LAL --away GSW
+    python nba_predictor.py --home OKC --away LAL --playoffs --model all
+    python nba_predictor.py --home LAL --away GSW --refresh
 """
 
 import os
@@ -414,6 +421,122 @@ class NBAPredictor:
             },
         }
 
+    # ── Rapport de blessures ─────────────────────────────────────────────────
+
+    def get_injury_report(self) -> pd.DataFrame:
+        """
+        Récupère le rapport de blessures officiel NBA en temps réel.
+        Source : JSON public NBA.com mis à jour toutes les 15 minutes.
+
+        Retourne
+        --------
+        DataFrame avec colonnes : player_name, team, status, reason
+        """
+        import requests
+
+        url = "https://cdn.nba.com/static/json/liveData/injuryreport/injuryreport.json"
+        try:
+            resp = requests.get(url, timeout=10,
+                                headers={"User-Agent": "Mozilla/5.0"})
+            resp.raise_for_status()
+            data = resp.json()
+
+            rows = []
+            for team_data in data.get("injuryReport", {}).get("items", []):
+                team_name = team_data.get("teamName", "")
+                for player in team_data.get("injuries", []):
+                    rows.append({
+                        "player_name": player.get("playerName", ""),
+                        "team":        team_name,
+                        "status":      player.get("currentStatus", ""),
+                        "reason":      player.get("reason", ""),
+                    })
+
+            df = pd.DataFrame(rows)
+            log.info(f"Injury report chargé ✓  ({len(df)} joueurs concernés)")
+            return df
+
+        except Exception as e:
+            log.warning(f"Impossible de récupérer le rapport de blessures : {e}")
+            # Fallback : fichier local
+            path = self.data_dir / "nba_injury_report.csv"
+            if path.exists():
+                return pd.read_csv(path)
+            return pd.DataFrame(columns=["player_name", "team", "status", "reason"])
+
+    def get_absent_players(self, team_name: str,
+                           injury_df: pd.DataFrame | None = None) -> list[str]:
+        """
+        Retourne les joueurs OUT ou DOUBTFUL d'une équipe depuis le rapport de blessures.
+
+        Paramètres
+        ----------
+        team_name : str  nom complet ou partiel de l'équipe
+        injury_df : DataFrame optionnel (si déjà chargé pour éviter double appel)
+        """
+        if injury_df is None:
+            injury_df = self.get_injury_report()
+
+        if injury_df.empty:
+            return []
+
+        team_injuries = injury_df[
+            injury_df["team"].str.contains(team_name, case=False, na=False)
+        ]
+
+        absent = team_injuries[
+            team_injuries["status"].str.upper().isin(["OUT", "DOUBTFUL"])
+        ]["player_name"].tolist()
+
+        return absent
+
+    def predict_game_auto(
+        self,
+        home_team: str,
+        away_team: str,
+        home_rest_days: int = 2,
+        away_rest_days: int = 2,
+        home_is_b2b: int = 0,
+        away_is_b2b: int = 0,
+        is_playoffs: int = 0,
+        model: str = "qnn",
+    ) -> dict:
+        """
+        Prédit un match en récupérant AUTOMATIQUEMENT les blessés depuis NBA.com.
+
+        Identique à predict_game() mais sans paramètres absent_home/absent_away —
+        ils sont détectés automatiquement via le rapport officiel NBA.
+
+        Usage agent :
+            predictor.predict_game_auto("LAL", "GSW")
+        """
+        home_name = self.resolve_team(home_team)
+        away_name = self.resolve_team(away_team)
+
+        # Récupérer le rapport une seule fois
+        log.info("Récupération du rapport de blessures NBA...")
+        injury_df = self.get_injury_report()
+
+        absent_home = self.get_absent_players(home_name, injury_df)
+        absent_away = self.get_absent_players(away_name, injury_df)
+
+        if absent_home:
+            log.info(f"Absents {home_name} : {', '.join(absent_home)}")
+        if absent_away:
+            log.info(f"Absents {away_name} : {', '.join(absent_away)}")
+
+        return self.predict_game(
+            home_team, away_team,
+            home_rest_days=home_rest_days,
+            away_rest_days=away_rest_days,
+            home_is_b2b=home_is_b2b,
+            away_is_b2b=away_is_b2b,
+            is_playoffs=is_playoffs,
+            absent_home=absent_home or None,
+            absent_away=absent_away or None,
+            model=model,
+        )
+
     # ── Rafraîchissement des stats ───────────────────────────────────────────
 
     def refresh_team_stats(self, season: str = "2025-26") -> None:
@@ -442,15 +565,13 @@ class NBAPredictor:
 
 def main():
     parser = argparse.ArgumentParser(description="Q-Sport NBA Predictor")
-    parser.add_argument("--home",         required=True,  help="Équipe domicile (ex: LAL)")
-    parser.add_argument("--away",         required=True,  help="Équipe extérieure (ex: GSW)")
-    parser.add_argument("--model",        default="qnn",  choices=["xgboost", "nn", "qnn", "all"])
-    parser.add_argument("--home-b2b",     action="store_true", help="Domicile en back-to-back")
-    parser.add_argument("--away-b2b",     action="store_true", help="Extérieur en back-to-back")
-    parser.add_argument("--playoffs",     action="store_true", help="Match de playoffs")
-    parser.add_argument("--absent-home",  nargs="*", default=[], help="Absents domicile")
-    parser.add_argument("--absent-away",  nargs="*", default=[], help="Absents extérieur")
-    parser.add_argument("--refresh",      action="store_true", help="Rafraîchir les stats NBA")
+    parser.add_argument("--home",     required=True, help="Équipe domicile (ex: LAL)")
+    parser.add_argument("--away",     required=True, help="Équipe extérieure (ex: GSW)")
+    parser.add_argument("--model",    default="qnn", choices=["xgboost", "nn", "qnn", "all"])
+    parser.add_argument("--home-b2b", action="store_true", help="Domicile en back-to-back")
+    parser.add_argument("--away-b2b", action="store_true", help="Extérieur en back-to-back")
+    parser.add_argument("--playoffs", action="store_true", help="Match de playoffs")
+    parser.add_argument("--refresh",  action="store_true", help="Rafraîchir les stats NBA")
     args = parser.parse_args()
 
     predictor = NBAPredictor()
@@ -459,17 +580,26 @@ def main():
         predictor.refresh_team_stats()
 
     kwargs = dict(
-        home_is_b2b  = int(args.home_b2b),
-        away_is_b2b  = int(args.away_b2b),
-        is_playoffs  = int(args.playoffs),
-        absent_home  = args.absent_home or None,
-        absent_away  = args.absent_away or None,
+        home_is_b2b = int(args.home_b2b),
+        away_is_b2b = int(args.away_b2b),
+        is_playoffs = int(args.playoffs),
     )
 
     if args.model == "all":
-        predictor.compare_models(args.home, args.away, **kwargs)
+        # Récupérer les blessés une fois puis comparer les 3 modèles
+        injury_df   = predictor.get_injury_report()
+        home_name   = predictor.resolve_team(args.home)
+        away_name   = predictor.resolve_team(args.away)
+        absent_home = predictor.get_absent_players(home_name, injury_df)
+        absent_away = predictor.get_absent_players(away_name, injury_df)
+        predictor.compare_models(
+            args.home, args.away,
+            absent_home=absent_home or None,
+            absent_away=absent_away or None,
+            **kwargs,
+        )
     else:
-        predictor.predict_game(args.home, args.away, model=args.model, **kwargs)
+        predictor.predict_game_auto(args.home, args.away, model=args.model, **kwargs)
 
 
 if __name__ == "__main__":
