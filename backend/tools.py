@@ -1,6 +1,5 @@
 from langchain.tools import tool
-import sys, os
-sys.path.insert(0, "/app")
+import os
 
 try:
     from nba_prediction import NBAPredictor

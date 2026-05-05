@@ -34,12 +34,14 @@ import torch
 import torch.nn as nn
 import pennylane as qml
 
+from paths import data_path
+
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger(__name__)
 
 # ── Chemins ────────────────────────────────────────────────────────────────
-DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR = data_path("nba")
 
 # ── Mapping trigrammes → noms ───────────────────────────────────────────────
 TEAM_MAP = {

@@ -1,0 +1,211 @@
+Construction index joueur → feat_clean...
+   → Utilisation de p1_name (colonne existante)
+✅ Index construit : 34326 lignes
+✅ Modèle chargé    : LightGBM
+   Features         : 94
+   Matchs en base   : 17,163
+   Matchs ongoing   : 95
+
+======================================================================
+  PRÉDICTIONS — Madrid Masters (95 matchs)
+======================================================================
+Round              Joueur 1               Joueur 2 P(J1 gagne)                 Prédit                   Réel ✅/❌
+ R128       Sebastian Ofner   Nikoloz Basilashvili       43.4%   Nikoloz Basilashvili        Sebastian Ofner   ❌
+ R128      Adrian Mannarino           Ignacio Buse       57.4%       Adrian Mannarino           Ignacio Buse   ❌
+ R128           Zizou Bergs            Marin Cilic       47.4%            Marin Cilic            Marin Cilic   ✅
+ R128       Mattia Bellucci          Damir Dzumhur       60.5%        Mattia Bellucci          Damir Dzumhur   ❌
+ R128           Vit Kopriva          Zhizhen Zhang       63.5%            Vit Kopriva            Vit Kopriva   ✅
+ R128         Dusan Lajovic         Lorenzo Sonego       36.2%         Lorenzo Sonego          Dusan Lajovic   ❌
+ R128           Emilio Nava        Jenson Brooksby       41.0%        Jenson Brooksby            Emilio Nava   ❌
+ R128     Matteo Berrettini           Dino Prizmic       55.3%      Matteo Berrettini           Dino Prizmic   ❌
+ R128      Alexandre Muller     Jan-Lennard Struff       43.5%     Jan-Lennard Struff     Jan-Lennard Struff   ✅
+ R128 Roberto Bautista Agut Thiago Agustin Tirante       44.5% Thiago Agustin Tirante Thiago Agustin Tirante   ✅
+ R128           Jaime Faria         Hubert Hurkacz       38.5%         Hubert Hurkacz         Hubert Hurkacz   ✅
+ R128          Elmer Moller          Federico Cina       47.2%          Federico Cina           Elmer Moller   ❌
+ R128        Jesper de Jong           Rafael Jodar       26.2%           Rafael Jodar           Rafael Jodar   ✅
+ R128       Titouan Droguet         Benjamin Bonzi       52.4%        Titouan Droguet         Benjamin Bonzi   ❌
+ R128          Tomas Machac     Francisco Comesana       68.3%           Tomas Machac           Tomas Machac   ✅
+ R128      Alejandro Tabilo         Valentin Royer       63.7%       Alejandro Tabilo       Alejandro Tabilo   ✅
+ R128       Grigor Dimitrov  Adolfo Daniel Vallejo       54.2%        Grigor Dimitrov  Adolfo Daniel Vallejo   ❌
+ R128        Terence Atmane      Miomir Kecmanovic       59.3%         Terence Atmane         Terence Atmane   ✅
+ R128      Alexander Blockx         Cristian Garin       70.8%       Alexander Blockx       Alexander Blockx   ✅
+ R128      Marton Fucsovics    Pablo Carreno Busta       59.8%       Marton Fucsovics    Pablo Carreno Busta   ❌
+ R128           Martin Damm         Alexei Popyrin       51.0%            Martin Damm            Martin Damm   ✅
+ R128      Yannick Hanfmann           Marcos Giron       53.9%       Yannick Hanfmann       Yannick Hanfmann   ✅
+ R128           Ethan Quinn        Fabian Marozsan       47.0%        Fabian Marozsan        Fabian Marozsan   ✅
+ R128  Alexander Shevchenko            Jaume Munar       43.1%            Jaume Munar            Jaume Munar   ✅
+ R128        Mariano Navone            Nuno Borges       39.2%            Nuno Borges         Mariano Navone   ❌
+ R128       Daniel Altmaier  Juan Manuel Cerundolo       61.5%        Daniel Altmaier  Juan Manuel Cerundolo   ❌
+ R128        Sebastian Baez          Vilius Gaubas       39.0%          Vilius Gaubas          Vilius Gaubas   ✅
+ R128        Patrick Kypson     Stefanos Tsitsipas       49.3%     Stefanos Tsitsipas     Stefanos Tsitsipas   ✅
+ R128  Camilo Ugo Carabelli           Gael Monfils       67.9%   Camilo Ugo Carabelli   Camilo Ugo Carabelli   ✅
+ R128  Nicolai Budkov Kjaer          Reilly Opelka       52.2%   Nicolai Budkov Kjaer   Nicolai Budkov Kjaer   ✅
+  ... (65 matchs supplémentaires)
+
+──────────────────────────────────────────────────────────────────────
+  📊 Résultats sur 95 matchs :
+     ✅ Bonnes prédictions : 62 (65.3%)
+     ❌ Mauvaises          : 33 (34.7%)
+
+  📋 Précision par round :
+       Bonnes  Total Précision
+Round                         
+F           1      1    100.0%
+QF          3      4     75.0%
+R128       18     32     56.2%
+R16         5      8     62.5%
+R32        13     16     81.2%
+R64        20     32     62.5%
+SF          2      2    100.0%
+──────────────────────────────────────────────────────────────────────
+
+
+=======================================================
+  🎾 Jannik Sinner
+     vs
+  🎾 Carlos Alcaraz
+  📍 Clay | M | SF | Best of 3 | 2026-05-05
+=======================================================
+
+  Derniers matchs connus :
+  Jannik Sinner             → 2026-04-12 (Victoire vs Carlos Alcaraz)
+  Carlos Alcaraz            → 2026-04-15 (Défaite vs Tomas Machac)
+
+  Fatigue (14j avant le match) :
+  Jannik Sinner             → 0 matchs | repos : 23 jours
+  Carlos Alcaraz            → 0 matchs | repos : 20 jours
+
+  H2H : Jannik Sinner mène 7-10 (41% de victoires)
+        Sur Clay : 40%
+
+  ┌────────────────────────────────────────┐
+  │███████████████████████                 │
+  └────────────────────────────────────────┘
+  Jannik Sinner          59.3%  │  40.7% Carlos Alcaraz
+
+  🏆 Vainqueur prédit : Jannik Sinner
+  📊 Confiance        : 59.3%
+  🤖 Modèle           : LightGBM
+=======================================================
+
+
+=======================================================
+  🎾 Alexander Zverev
+     vs
+  🎾 Novak Djokovic
+  📍 Clay | M | QF | Best of 3 | 2026-05-05
+=======================================================
+
+  Derniers matchs connus :
+  Alexander Zverev          → 2026-04-18 (Défaite vs Flavio Cobolli)
+  Novak Djokovic            → 2026-03-12 (Défaite vs Jack Draper)
+
+  Fatigue (14j avant le match) :
+  Alexander Zverev          → 0 matchs | repos : 17 jours
+  Novak Djokovic            → 0 matchs | repos : 54 jours
+
+  H2H : Alexander Zverev mène 3-6 (33% de victoires)
+        Sur Clay : 0%
+
+  ┌────────────────────────────────────────┐
+  │█████████████████                       │
+  └────────────────────────────────────────┘
+  Alexander Zverev       42.5%  │  57.5% Novak Djokovic
+
+  🏆 Vainqueur prédit : Novak Djokovic
+  📊 Confiance        : 57.5%
+  🤖 Modèle           : LightGBM
+=======================================================
+
+
+📊 Impact de la surface — Sinner vs Alcaraz :
+
+=======================================================
+  🎾 Jannik Sinner
+     vs
+  🎾 Carlos Alcaraz
+  📍 Hard | G | F | Best of 5 | 2026-05-05
+=======================================================
+
+  Derniers matchs connus :
+  Jannik Sinner             → 2026-04-12 (Victoire vs Carlos Alcaraz)
+  Carlos Alcaraz            → 2026-04-15 (Défaite vs Tomas Machac)
+
+  Fatigue (14j avant le match) :
+  Jannik Sinner             → 0 matchs | repos : 23 jours
+  Carlos Alcaraz            → 0 matchs | repos : 20 jours
+
+  H2H : Jannik Sinner mène 7-10 (41% de victoires)
+        Sur Hard : 30%
+
+  ┌────────────────────────────────────────┐
+  │████████████████████████                │
+  └────────────────────────────────────────┘
+  Jannik Sinner          60.3%  │  39.7% Carlos Alcaraz
+
+  🏆 Vainqueur prédit : Jannik Sinner
+  📊 Confiance        : 60.3%
+  🤖 Modèle           : LightGBM
+=======================================================
+
+   Hard  → Sinner 60.3% | Alcaraz 39.7%
+
+=======================================================
+  🎾 Jannik Sinner
+     vs
+  🎾 Carlos Alcaraz
+  📍 Clay | G | F | Best of 5 | 2026-05-05
+=======================================================
+
+  Derniers matchs connus :
+  Jannik Sinner             → 2026-04-12 (Victoire vs Carlos Alcaraz)
+  Carlos Alcaraz            → 2026-04-15 (Défaite vs Tomas Machac)
+
+  Fatigue (14j avant le match) :
+  Jannik Sinner             → 0 matchs | repos : 23 jours
+  Carlos Alcaraz            → 0 matchs | repos : 20 jours
+
+  H2H : Jannik Sinner mène 7-10 (41% de victoires)
+        Sur Clay : 40%
+
+  ┌────────────────────────────────────────┐
+  │████████████████████████                │
+  └────────────────────────────────────────┘
+  Jannik Sinner          60.1%  │  39.9% Carlos Alcaraz
+
+  🏆 Vainqueur prédit : Jannik Sinner
+  📊 Confiance        : 60.1%
+  🤖 Modèle           : LightGBM
+=======================================================
+
+   Clay  → Sinner 60.1% | Alcaraz 39.9%
+
+=======================================================
+  🎾 Jannik Sinner
+     vs
+  🎾 Carlos Alcaraz
+  📍 Grass | G | F | Best of 5 | 2026-05-05
+=======================================================
+
+  Derniers matchs connus :
+  Jannik Sinner             → 2026-04-12 (Victoire vs Carlos Alcaraz)
+  Carlos Alcaraz            → 2026-04-15 (Défaite vs Tomas Machac)
+
+  Fatigue (14j avant le match) :
+  Jannik Sinner             → 0 matchs | repos : 23 jours
+  Carlos Alcaraz            → 0 matchs | repos : 20 jours
+
+  H2H : Jannik Sinner mène 7-10 (41% de victoires)
+        Sur Grass : 100%
+
+  ┌────────────────────────────────────────┐
+  │████████████████████████                │
+  └────────────────────────────────────────┘
+  Jannik Sinner          61.5%  │  38.5% Carlos Alcaraz
+
+  🏆 Vainqueur prédit : Jannik Sinner
+  📊 Confiance        : 61.5%
+  🤖 Modèle           : LightGBM
+=======================================================
+
+   Grass → Sinner 61.5% | Alcaraz 38.5%

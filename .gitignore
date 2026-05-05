@@ -5,9 +5,3 @@ venv
 .env
 .ipynb_checkpoints/
 *Zone.Identifier
-data/**/*.csv
-data/**/*.pkl
-data/**/*.png
-*.csv
-*.pkl
-*.png
