@@ -3,13 +3,11 @@ venv
 .venv
 /.venv
 .env
-# Jupyter checkpoints
 .ipynb_checkpoints/
-
-# Zone.Identifier (fichiers Windows)
 *.Zone.Identifier
-
-# Données volumineuses
-data/*.csv
-data/*.pkl
-data/*.png
+data/**/*.csv
+data/**/*.pkl
+data/**/*.png
+*.csv
+*.pkl
+*.png
