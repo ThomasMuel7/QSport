@@ -1,10 +1,17 @@
 from langchain_ollama import OllamaLLM
 from langchain.agents import initialize_agent, AgentType
 from langchain.memory import ConversationBufferWindowMemory
+from langchain.schema import SystemMessage
 from tools import predict_nba, predict_foot, predict_tennis
 import os
 
 _agent = None
+
+SYSTEM_MESSAGE = SystemMessage(content="""You are QSport, an expert sports prediction assistant.
+ABSOLUTE RULES:
+- When you use a tool, return ITS RESULT EXACTLY as-is, without modifying it, without interpreting it, without inventing numbers.
+- NEVER change the percentages or team names returned by the tools.
+- Do NOT add disclaimers like "predictions may vary".""")
 
 def get_agent():
     global _agent
@@ -28,6 +35,7 @@ def get_agent():
         memory=memory,
         handle_parsing_errors=True,
         max_iterations=15,
-        max_execution_time=300
+        max_execution_time=300,
+        agent_kwargs={"system_message": SYSTEM_MESSAGE}
     )
     return _agent

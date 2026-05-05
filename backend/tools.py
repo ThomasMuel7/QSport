@@ -9,6 +9,12 @@ except Exception as e:
     _nba_predictor = None
     print(f"[tools] NBA predictor non disponible: {e}")
 
+try:
+    from odds import get_match_odds, SPORTS_MAPPING
+except Exception as e:
+    get_match_odds = None
+    print(f"[tools] Odds non disponible: {e}")
+
 @tool
 def predict_nba(teams: str) -> str:
     """Predit le resultat d'un match NBA. Format: 'TEAM1 vs TEAM2' avec trigrammes NBA (ex: LAL vs GSW)."""
@@ -25,7 +31,25 @@ def predict_nba(teams: str) -> str:
             absent_home=None,
             absent_away=None
         )
-        return f"{result['winner']} gagne avec {result['confidence']:.0%} de confiance."
+
+            # Cotes NBA
+        cotes_str = ""
+        if get_match_odds:
+            cotes = get_match_odds("basketball_nba", result['home_team'], result['away_team'])
+            if cotes and "error" not in cotes[0] and "message" not in cotes[0]:
+                c = cotes[0]
+                cotes_str = (
+                    f" Cotes : {c.get('Cote Home (1)', 'N/A')} (domicile) "
+                    f"/ {c.get('Cote Away (2)', 'N/A')} (exterieur)."
+                )
+
+        return (
+            f"Vainqueur predit : {result['winner']}. "
+            f"{result['home_team']} : {result['p_home_win']:.0%} de chance de gagner. "
+            f"{result['away_team']} : {result['p_away_win']:.0%} de chance de gagner. "
+            f"Ecart predit : {result['point_diff_pred']:+.1f} points."
+            f"{cotes_str}"
+        )
     except Exception as e:
         return f"Prediction NBA indisponible: {e}"
 
