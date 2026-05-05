@@ -8,4 +8,4 @@
    macro avg     0.5174    0.5156    0.5144      1565
 weighted avg     0.5484    0.5310    0.5374      1565
 
-Temps : 6.2s
+Temps : 1.5s
