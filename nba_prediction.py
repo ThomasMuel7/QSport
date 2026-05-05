@@ -4,15 +4,15 @@ nba_predictor.py — Q-Sport NBA Prediction Engine
 Fichier centralisé pour la prédiction de matchs NBA.
 Utilisable directement par un agent LLM ou en ligne de commande.
 
-Les blessés sont récupérés AUTOMATIQUEMENT depuis NBA.com — 
+Les blessés sont récupérés AUTOMATIQUEMENT depuis ESPN —
 aucune information manuelle n'est nécessaire.
 
 Usage agent :
     from nba_predictor import NBAPredictor
     predictor = NBAPredictor()
-    predictor.predict_game_auto("LAL", "GSW")           # blessés auto
+    predictor.predict_game_auto("LAL", "GSW")
     predictor.predict_game_auto("OKC", "LAL", is_playoffs=1)
-    predictor.compare_models("BOS", "MIA")              # 3 modèles
+    predictor.compare_models("BOS", "MIA")
 
 Usage ligne de commande :
     python nba_predictor.py --home LAL --away GSW
@@ -20,7 +20,6 @@ Usage ligne de commande :
     python nba_predictor.py --home LAL --away GSW --refresh
 """
 
-import os
 import time
 import pickle
 import logging
@@ -54,7 +53,6 @@ TEAM_MAP = {
     "ORL": "Magic",       "WAS": "Wizards",      "BKN": "Nets",
     "TOR": "Raptors",     "HOU": "Rockets",      "SAS": "Spurs",
 }
-# Inverse : nom partiel → trigramme
 NAME_TO_TRI = {v.lower(): k for k, v in TEAM_MAP.items()}
 
 
@@ -63,6 +61,7 @@ N_QUBITS = 8
 N_LAYERS = 3
 
 _dev = qml.device("default.qubit", wires=N_QUBITS)
+
 
 @qml.qnode(_dev, interface="torch")
 def _quantum_circuit(features, weights):
@@ -100,14 +99,7 @@ class HybridQNNv2(nn.Module):
 
 # ── Moteur de prédiction ────────────────────────────────────────────────────
 class NBAPredictor:
-    """
-    Moteur de prédiction NBA — charge tous les modèles et artefacts une seule fois.
-
-    Paramètres
-    ----------
-    data_dir : str | Path
-        Répertoire contenant les fichiers data/ (pkl, csv).
-    """
+    """Moteur de prédiction NBA — charge tous les modèles une seule fois."""
 
     def __init__(self, data_dir: str | Path = DATA_DIR):
         self.data_dir = Path(data_dir)
@@ -120,13 +112,10 @@ class NBAPredictor:
         """Charge les modèles, scalers et listes de features."""
         log.info("Chargement des modèles...")
 
-        # XGBoost
         with open(self.data_dir / "nba_xgb_clf.pkl", "rb") as f:
             self.xgb_clf = pickle.load(f)
         with open(self.data_dir / "nba_xgb_reg.pkl", "rb") as f:
             self.xgb_reg = pickle.load(f)
-
-        # Features et scalers
         with open(self.data_dir / "nba_features_xgb.pkl", "rb") as f:
             self.features_xgb = pickle.load(f)
         with open(self.data_dir / "nba_features_qnn.pkl", "rb") as f:
@@ -136,8 +125,7 @@ class NBAPredictor:
         with open(self.data_dir / "nba_scaler_qnn.pkl", "rb") as f:
             self.scaler_qnn = pickle.load(f)
 
-        # NN Classique
-        n_qnn_features = len(self.features_qnn)
+        n = len(self.features_qnn)
 
         class _ClassicNN(nn.Module):
             def __init__(self, n):
@@ -150,13 +138,12 @@ class NBAPredictor:
             def forward(self, x):
                 return self.net(x).squeeze()
 
-        self.nn_model = _ClassicNN(n_qnn_features)
+        self.nn_model = _ClassicNN(n)
         self.nn_model.load_state_dict(
             torch.load(self.data_dir / "nba_nn_classic_v2.pt", weights_only=True)
         )
         self.nn_model.eval()
 
-        # QNN
         self.qnn_model = HybridQNNv2()
         self.qnn_model.load_state_dict(
             torch.load(self.data_dir / "nba_qnn_v2_weights.pt", weights_only=True)
@@ -176,11 +163,11 @@ class NBAPredictor:
 
     @staticmethod
     def resolve_team(name: str) -> str:
-        """Convertit un trigramme ou un nom partiel en nom complet."""
+        """Convertit un trigramme ou nom partiel en nom complet."""
         name = name.strip()
         if name.upper() in TEAM_MAP:
             return TEAM_MAP[name.upper()]
-        for key, val in TEAM_MAP.items():
+        for val in TEAM_MAP.values():
             if name.lower() in val.lower():
                 return val
         raise ValueError(
@@ -211,11 +198,10 @@ class NBAPredictor:
         absent_home: list[str] | None = None,
         absent_away: list[str] | None = None,
     ) -> dict:
-        """Construit le STAT_MAP à partir des stats actuelles des équipes."""
+        """Construit le vecteur de features à partir des stats équipes."""
         home = self._get_stats(home_name)
         away = self._get_stats(away_name)
 
-        # Pénalité d'absence : réduction du NET_RATING selon minutes perdues
         def absence_penalty(absent_players: list[str] | None) -> float:
             if not absent_players:
                 return 0.0
@@ -228,15 +214,11 @@ class NBAPredictor:
                 ]
                 if not match.empty:
                     min_pg = match.iloc[0].get("MIN", 0)
-                    # Empirique : 1 min/game ≈ 0.15 point de NET_RATING
                     penalty += min_pg * 0.15
             return penalty
 
-        home_penalty = absence_penalty(absent_home)
-        away_penalty = absence_penalty(absent_away)
-
-        home_net = home["NET_RATING"] - home_penalty
-        away_net = away["NET_RATING"] - away_penalty
+        home_net = home["NET_RATING"] - absence_penalty(absent_home)
+        away_net = away["NET_RATING"] - absence_penalty(absent_away)
 
         return {
             "is_playoffs":                               is_playoffs,
@@ -277,25 +259,7 @@ class NBAPredictor:
     ) -> dict:
         """
         Prédit le résultat d'un match NBA.
-
-        Paramètres
-        ----------
-        home_team, away_team : str
-            Trigramme ('LAL') ou nom partiel ('Lakers').
-        home_rest_days, away_rest_days : int
-            Jours de repos avant le match (défaut : 2).
-        home_is_b2b, away_is_b2b : int
-            1 si l'équipe joue en back-to-back.
-        is_playoffs : int
-            1 si match de playoffs.
-        absent_home, absent_away : list[str]
-            Noms des joueurs indisponibles (ex: ['LeBron James']).
-        model : str
-            'xgboost' | 'nn' | 'qnn'
-
-        Retourne
-        --------
-        dict avec p_home, p_away, winner, confidence, point_diff_pred
+        Paramètres : home_team/away_team (trigramme ou nom partiel), model (xgboost|nn|qnn).
         """
         home_name = self.resolve_team(home_team)
         away_name = self.resolve_team(away_team)
@@ -304,33 +268,28 @@ class NBAPredictor:
             home_name, away_name,
             home_rest_days, away_rest_days,
             home_is_b2b, away_is_b2b,
-            is_playoffs,
-            absent_home, absent_away,
+            is_playoffs, absent_home, absent_away,
         )
 
-        # ── XGBoost ──
         if model == "xgboost":
             x = np.array([stat_map.get(f, 0) for f in self.features_xgb]).reshape(1, -1)
-            p_home = float(self.xgb_clf.predict_proba(self.scaler_xgb.transform(x))[0, 1])
+            p_home     = float(self.xgb_clf.predict_proba(self.scaler_xgb.transform(x))[0, 1])
             point_diff = float(self.xgb_reg.predict(self.scaler_xgb.transform(x))[0])
 
-        # ── NN Classique ──
         elif model == "nn":
-            x = np.array([stat_map.get(f, 0) for f in self.features_qnn]).reshape(1, -1)
+            x   = np.array([stat_map.get(f, 0) for f in self.features_qnn]).reshape(1, -1)
             x_t = torch.tensor(
                 np.clip(self.scaler_qnn.transform(x), -np.pi, np.pi),
                 dtype=torch.float32,
             )
             with torch.no_grad():
                 p_home = float(self.nn_model(x_t).item())
-            # Régression approx depuis p_home
             point_diff = (p_home - 0.5) * 20
 
-        # ── QNN Hybride ──
         elif model == "qnn":
-            x = np.array([stat_map.get(f, 0) for f in self.features_qnn]).reshape(1, -1)
+            x        = np.array([stat_map.get(f, 0) for f in self.features_qnn]).reshape(1, -1)
             x_scaled = np.clip(self.scaler_qnn.transform(x), -np.pi, np.pi)[:, :N_QUBITS]
-            x_t = torch.tensor(x_scaled, dtype=torch.float32)
+            x_t      = torch.tensor(x_scaled, dtype=torch.float32)
             with torch.no_grad():
                 p_home = float(self.qnn_model(x_t).item())
             point_diff = (p_home - 0.5) * 20
@@ -338,70 +297,131 @@ class NBAPredictor:
         else:
             raise ValueError(f"Modèle '{model}' inconnu. Choisir parmi : xgboost, nn, qnn")
 
-        p_away  = 1.0 - p_home
-        winner  = home_name if p_home >= 0.5 else away_name
-        conf    = max(p_home, p_away)
+        p_away = 1.0 - p_home
+        winner = home_name if p_home >= 0.5 else away_name
+        conf   = max(p_home, p_away)
 
         result = {
-            "home_team":      home_name,
-            "away_team":      away_name,
-            "p_home_win":     round(p_home, 3),
-            "p_away_win":     round(p_away, 3),
-            "winner":         winner,
-            "confidence":     round(conf, 3),
+            "home_team":       home_name,
+            "away_team":       away_name,
+            "p_home_win":      round(p_home, 3),
+            "p_away_win":      round(p_away, 3),
+            "winner":          winner,
+            "confidence":      round(conf, 3),
             "point_diff_pred": round(point_diff, 1),
-            "model":          model,
+            "model":           model,
             "context": {
-                "home_is_b2b":   bool(home_is_b2b),
-                "away_is_b2b":   bool(away_is_b2b),
-                "is_playoffs":   bool(is_playoffs),
-                "absent_home":   absent_home or [],
-                "absent_away":   absent_away or [],
+                "home_is_b2b": bool(home_is_b2b),
+                "away_is_b2b": bool(away_is_b2b),
+                "is_playoffs": bool(is_playoffs),
+                "absent_home": absent_home or [],
+                "absent_away": absent_away or [],
             },
+            "odds": self.get_odds(home_team, away_team),
         }
 
-        self._print_result(result)
+        print(self.format_result_for_llm(result))
         return result
 
+    # ── Cotes bookmakers ─────────────────────────────────────────────────────
+
+    def get_odds(self, home_team: str, away_team: str) -> dict:
+        """
+        Récupère les cotes bookmakers via ESPN scoreboard.
+        Retourne les cotes décimales (format européen).
+        Ex: 2.25 signifie que 1€ misé rapporte 2.25€.
+        Fonctionne depuis Docker (pas de blocage contrairement à NBA.com).
+        """
+        import requests
+
+        url  = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+        odds = {"home_decimal": None, "away_decimal": None, "source": None}
+
+        try:
+            resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+            resp.raise_for_status()
+            data      = resp.json()
+            home_name = self.resolve_team(home_team)
+            away_name = self.resolve_team(away_team)
+
+            for event in data.get("events", []):
+                competitors = event.get("competitions", [{}])[0].get("competitors", [])
+                teams = [c["team"]["displayName"] for c in competitors]
+                home_match = any(home_name.lower() in t.lower() for t in teams)
+                away_match = any(away_name.lower() in t.lower() for t in teams)
+
+                if home_match and away_match:
+                    comp = event["competitions"][0]
+                    for odds_data in comp.get("odds", []):
+                        home_ml = odds_data.get("homeTeamOdds", {}).get("moneyLine")
+                        away_ml = odds_data.get("awayTeamOdds", {}).get("moneyLine")
+                        if home_ml and away_ml:
+                            def ml_to_decimal(ml: float) -> float:
+                                """Convertit moneyline américain en cote décimale européenne."""
+                                if ml < 0:
+                                    return round(1 + 100 / abs(ml), 2)
+                                else:
+                                    return round(1 + ml / 100, 2)
+                            odds["home_decimal"] = ml_to_decimal(home_ml)
+                            odds["away_decimal"] = ml_to_decimal(away_ml)
+                            odds["source"]       = odds_data.get(
+                                "provider", {}
+                            ).get("name", "Bookmaker")
+                    break
+
+        except Exception as e:
+            log.warning(f"Cotes ESPN indisponibles : {e}")
+
+        return odds
+
+    # ── Formatage pour le LLM ────────────────────────────────────────────────
+
     @staticmethod
-    def _print_result(r: dict) -> None:
-        """Affiche le résultat de manière lisible."""
-        print(f"\n🏀 {r['home_team']} (dom.)  vs  {r['away_team']} (ext.)")
-        print(f"   P({r['home_team']} gagne)  =  {r['p_home_win']:.1%}")
-        print(f"   P({r['away_team']} gagne)  =  {r['p_away_win']:.1%}")
-        print(f"   Écart prédit              ≈  {r['point_diff_pred']:+.1f} pts")
-        print(f"   → {r['winner']} ({r['confidence']:.1%} de confiance)  [{r['model']}]")
-        ctx = r["context"]
-        if ctx["home_is_b2b"]:
-            print(f"   ⚠  {r['home_team']} joue en back-to-back")
-        if ctx["away_is_b2b"]:
-            print(f"   ⚠  {r['away_team']} joue en back-to-back")
-        if ctx["absent_home"]:
-            print(f"   🚑 Absents {r['home_team']} : {', '.join(ctx['absent_home'])}")
-        if ctx["absent_away"]:
-            print(f"   🚑 Absents {r['away_team']} : {', '.join(ctx['absent_away'])}")
+    def format_result_for_llm(r: dict) -> str:
+        """
+        Formate le résultat de manière concise pour le LLM.
+
+        Exemple de sortie :
+            OKC vs Boston Celtics :
+            Thunder gagne avec 68% de confiance, écart prédit : +7 pts
+            Cotes ESPN : Thunder @ 1.56 / Celtics @ 2.45
+        """
+        winner = r["winner"]
+        loser  = r["away_team"] if r["winner"] == r["home_team"] else r["home_team"]
+        diff   = r["point_diff_pred"]
+
+        lines = [
+            f"{r['home_team']} vs {r['away_team']} :",
+            f"{winner} gagne avec {r['confidence']:.0%} de confiance, "
+            f"écart prédit : {diff:+.0f} pts",
+        ]
+
+        odds = r.get("odds", {})
+        if odds.get("home_decimal") is not None:
+            if r["winner"] == r["home_team"]:
+                cote_win  = odds["home_decimal"]
+                cote_lose = odds["away_decimal"]
+            else:
+                cote_win  = odds["away_decimal"]
+                cote_lose = odds["home_decimal"]
+            src = odds.get("source", "Bookmakers")
+            lines.append(
+                f"Cotes {src} : {winner} @ {cote_win} / {loser} @ {cote_lose}"
+            )
+        else:
+            lines.append("Cotes bookmakers : non disponibles pour ce match")
+
+        return "\n".join(lines)
 
     # ── Comparaison des 3 modèles ────────────────────────────────────────────
 
-    def compare_models(
-        self,
-        home_team: str,
-        away_team: str,
-        **kwargs,
-    ) -> dict:
-        """
-        Prédit avec les 3 modèles et retourne une comparaison.
-
-        Retourne
-        --------
-        dict avec les résultats de chaque modèle et un consensus.
-        """
+    def compare_models(self, home_team: str, away_team: str, **kwargs) -> dict:
+        """Prédit avec les 3 modèles et retourne un consensus."""
         results = {}
         for m in ["xgboost", "nn", "qnn"]:
             results[m] = self.predict_game(home_team, away_team, model=m, **kwargs)
 
-        # Consensus : moyenne des probabilités
-        p_consensus = np.mean([results[m]["p_home_win"] for m in results])
+        p_consensus = float(np.mean([results[m]["p_home_win"] for m in results]))
         home_name   = results["xgboost"]["home_team"]
         away_name   = results["xgboost"]["away_team"]
         winner      = home_name if p_consensus >= 0.5 else away_name
@@ -413,82 +433,70 @@ class NBAPredictor:
         print(f"   Moyenne : {p_consensus:.1%}  → {winner}")
 
         return {
-            "models":    results,
+            "models": results,
             "consensus": {
-                "p_home": round(float(p_consensus), 3),
-                "p_away": round(float(1 - p_consensus), 3),
+                "p_home": round(p_consensus, 3),
+                "p_away": round(1 - p_consensus, 3),
                 "winner": winner,
             },
         }
 
-    # ── Rapport de blessures ─────────────────────────────────────────────────
+    # ── Rapport de blessures ESPN ────────────────────────────────────────────
 
     def get_injury_report(self) -> pd.DataFrame:
         """
-        Récupère le rapport de blessures officiel NBA en temps réel.
-        Source : JSON public NBA.com mis à jour toutes les 15 minutes.
-
-        Retourne
-        --------
-        DataFrame avec colonnes : player_name, team, status, reason
+        Récupère le rapport de blessures NBA via ESPN.
+        Fonctionne depuis Docker (pas de blocage 403).
         """
         import requests
 
-        url = "https://cdn.nba.com/static/json/liveData/injuryreport/injuryreport.json"
+        url = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries"
         try:
-            resp = requests.get(url, timeout=10,
-                                headers={"User-Agent": "Mozilla/5.0"})
+            resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
             resp.raise_for_status()
             data = resp.json()
 
             rows = []
-            for team_data in data.get("injuryReport", {}).get("items", []):
-                team_name = team_data.get("teamName", "")
-                for player in team_data.get("injuries", []):
+            for team_data in data.get("injuries", []):
+                team_name = team_data.get("team", {}).get("displayName", "")
+                for injury in team_data.get("injuries", []):
+                    athlete = injury.get("athlete", {})
                     rows.append({
-                        "player_name": player.get("playerName", ""),
+                        "player_name": athlete.get("displayName", ""),
                         "team":        team_name,
-                        "status":      player.get("currentStatus", ""),
-                        "reason":      player.get("reason", ""),
+                        "status":      injury.get("status", ""),
+                        "reason":      injury.get("details", {}).get("type", ""),
                     })
 
             df = pd.DataFrame(rows)
-            log.info(f"Injury report chargé ✓  ({len(df)} joueurs concernés)")
+            log.info(f"Injury report ESPN chargé ✓  ({len(df)} joueurs concernés)")
             return df
 
         except Exception as e:
-            log.warning(f"Impossible de récupérer le rapport de blessures : {e}")
-            # Fallback : fichier local
+            log.warning(f"ESPN injury report indisponible : {e}")
             path = self.data_dir / "nba_injury_report.csv"
             if path.exists():
                 return pd.read_csv(path)
             return pd.DataFrame(columns=["player_name", "team", "status", "reason"])
 
-    def get_absent_players(self, team_name: str,
-                           injury_df: pd.DataFrame | None = None) -> list[str]:
-        """
-        Retourne les joueurs OUT ou DOUBTFUL d'une équipe depuis le rapport de blessures.
-
-        Paramètres
-        ----------
-        team_name : str  nom complet ou partiel de l'équipe
-        injury_df : DataFrame optionnel (si déjà chargé pour éviter double appel)
-        """
+    def get_absent_players(
+        self,
+        team_name: str,
+        injury_df: pd.DataFrame | None = None,
+    ) -> list[str]:
+        """Retourne les joueurs OUT ou DOUBTFUL d'une équipe."""
         if injury_df is None:
             injury_df = self.get_injury_report()
-
         if injury_df.empty:
             return []
-
         team_injuries = injury_df[
             injury_df["team"].str.contains(team_name, case=False, na=False)
         ]
-
-        absent = team_injuries[
+        return team_injuries[
             team_injuries["status"].str.upper().isin(["OUT", "DOUBTFUL"])
         ]["player_name"].tolist()
 
-        return absent
+    # ── Méthode principale pour l'agent ─────────────────────────────────────
 
     def predict_game_auto(
         self,
@@ -502,21 +510,17 @@ class NBAPredictor:
         model: str = "qnn",
     ) -> dict:
         """
-        Prédit un match en récupérant AUTOMATIQUEMENT les blessés depuis NBA.com.
+        Méthode principale pour l'agent LLM.
+        Prédit un match en récupérant AUTOMATIQUEMENT les blessés depuis ESPN.
 
-        Identique à predict_game() mais sans paramètres absent_home/absent_away —
-        ils sont détectés automatiquement via le rapport officiel NBA.
-
-        Usage agent :
+        Usage :
             predictor.predict_game_auto("LAL", "GSW")
+            predictor.predict_game_auto("OKC", "LAL", is_playoffs=1)
         """
         home_name = self.resolve_team(home_team)
         away_name = self.resolve_team(away_team)
 
-        # Récupérer le rapport une seule fois
-        log.info("Récupération du rapport de blessures NBA...")
-        injury_df = self.get_injury_report()
-
+        injury_df   = self.get_injury_report()
         absent_home = self.get_absent_players(home_name, injury_df)
         absent_away = self.get_absent_players(away_name, injury_df)
 
@@ -540,10 +544,7 @@ class NBAPredictor:
     # ── Rafraîchissement des stats ───────────────────────────────────────────
 
     def refresh_team_stats(self, season: str = "2025-26") -> None:
-        """
-        Rafraîchit les stats des équipes depuis l'API NBA.
-        À appeler avant chaque session de prédiction pour avoir les données à jour.
-        """
+        """Rafraîchit les stats des équipes depuis l'API NBA."""
         try:
             from nba_api.stats.endpoints import leaguedashteamstats
             log.info("Rafraîchissement des stats depuis l'API NBA...")
@@ -555,10 +556,12 @@ class NBAPredictor:
             )
             time.sleep(0.6)
             self.team_stats = dash.get_data_frames()[0]
-            self.team_stats.to_csv(self.data_dir / "nba_team_stats_current.csv", index=False)
+            self.team_stats.to_csv(
+                self.data_dir / "nba_team_stats_current.csv", index=False
+            )
             log.info(f"Stats rafraîchies ✓  ({len(self.team_stats)} équipes)")
         except Exception as e:
-            log.warning(f"Impossible de rafraîchir les stats : {e}. Utilisation des stats en cache.")
+            log.warning(f"Impossible de rafraîchir les stats : {e}")
 
 
 # ── Interface ligne de commande ─────────────────────────────────────────────
@@ -580,13 +583,12 @@ def main():
         predictor.refresh_team_stats()
 
     kwargs = dict(
-        home_is_b2b = int(args.home_b2b),
-        away_is_b2b = int(args.away_b2b),
-        is_playoffs = int(args.playoffs),
+        home_is_b2b=int(args.home_b2b),
+        away_is_b2b=int(args.away_b2b),
+        is_playoffs=int(args.playoffs),
     )
 
     if args.model == "all":
-        # Récupérer les blessés une fois puis comparer les 3 modèles
         injury_df   = predictor.get_injury_report()
         home_name   = predictor.resolve_team(args.home)
         away_name   = predictor.resolve_team(args.away)
