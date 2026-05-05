@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="QSport : Prediction de matchs sportifs">
+  <title>QSport - Predictions sportives</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-global: #080a0f;
+      --bg-ai: #111827;
+      --bg-user: #0d0f14;
+      --bg-input-area: #111827;
+      --bg-input: #1a2035;
+      --bg-error: #1a0a0a;
+      --accent: #f59e0b;
+      --accent-hover: #fbbf24;
+      --text-main: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #475569;
+      --text-hint: #2d3748;
+      --text-error: #fca5a5;
+      --border: #1e2535;
+      --border-input: #2d3748;
+      --green: #22c55e;
+      --red: #ef4444;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-body: system-ui, -apple-system, sans-serif;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      background: var(--bg-global);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.75;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top accent bar ── */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent);
+      z-index: 200;
+    }
+
+    /* ── Header ── */
+    #header {
+      position: sticky; top: 0; z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-global);
+      margin-top: 3px;
+    }
+
+    #header-left {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    #brand {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: 0.25em;
+      color: var(--accent);
+      user-select: none;
+    }
+
+    #brand-sub {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      user-select: none;
+    }
+
+    #header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    #clock {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      user-select: none;
+    }
+
+    #status {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #status-dot { font-size: 8px; line-height: 1; }
+    #status.online { color: var(--green); }
+    #status.offline { color: var(--red); }
+
+    /* ── Chat ── */
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      scroll-behavior: smooth;
+    }
+
+    #chat::-webkit-scrollbar { width: 5px; }
+    #chat::-webkit-scrollbar-track { background: transparent; }
+    #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    #chat::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* ── Messages ── */
+    .msg { max-width: 72%; }
+    .msg-ai { align-self: flex-start; }
+    .msg-user { align-self: flex-end; }
+
+    /* AI bubble */
+    .msg-ai .msg-bubble {
+      background: var(--bg-ai);
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+
+    .msg-prefix {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 8px;
+      user-select: none;
+    }
+
+    .msg-prefix .chevron {
+      opacity: 0.5;
+      margin-left: 4px;
+    }
+
+    .msg-content {
+      color: var(--text-main);
+      font-size: 15px;
+      line-height: 1.75;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    .msg-content strong { color: #ffffff; font-weight: 600; }
+    .msg-content em { color: var(--text-secondary); font-style: italic; }
+
+    /* User bubble */
+    .msg-user .msg-bubble {
+      background: var(--bg-user);
+      border-left: 3px solid var(--accent);
+      padding: 14px 20px 14px 18px;
+    }
+
+    .msg-user .msg-content {
+      color: var(--text-main);
+    }
+
+    /* Error bubble */
+    .msg-error .msg-bubble {
+      background: var(--bg-error);
+      border-left: 3px solid var(--red);
+      border-radius: 8px;
+    }
+
+    .msg-error .msg-prefix { color: var(--red); opacity: 0.8; }
+
+    .msg-error .msg-content {
+      color: var(--text-error);
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    .msg-error-badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--text-error);
+      background: #2a0f0f;
+      padding: 2px 6px;
+      border-radius: 2px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    /* ── Sources ── */
+    .msg-sources {
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .msg-sources-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .msg-sources-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .source-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #64748b;
+      background: var(--border);
+      padding: 2px 8px;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
+    .source-tag::before { content: '#'; opacity: 0.5; }
+
+    /* ── Loading ── */
+    .msg-loading .msg-bubble {
+      background: var(--bg-ai);
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+
+    .loading-text {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-secondary);
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Input area ── */
+    #input-area {
+      background: var(--bg-input-area);
+      border-top: 1px solid var(--border);
+      padding: 16px 20px;
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+    }
+
+    #message-input { flex: 1; }
+
+    #message-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      border-radius: 6px;
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.6;
+      padding: 14px 16px;
+      resize: none;
+      outline: none;
+      min-height: 50px;
+      max-height: 160px;
+      transition: border-color 0.12s;
+    }
+
+    #message-input::placeholder { color: var(--text-muted); }
+    #message-input:focus { border-color: var(--accent); }
+    #message-input:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #send-btn {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--bg-global);
+      background: var(--accent);
+      border: none;
+      border-radius: 4px;
+      padding: 14px 20px;
+      cursor: pointer;
+      transition: background 0.12s;
+      white-space: nowrap;
+      line-height: 1.6;
+      align-self: flex-end;
+      height: fit-content;
+      margin: 0;
+    }
+
+    #send-btn:hover:not(:disabled) { background: var(--accent-hover); }
+    #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #footer-hint {
+      text-align: center;
+      padding: 6px 0 10px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-hint);
+      user-select: none;
+      background: var(--bg-input-area);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      #header { padding: 12px 16px; }
+      #chat { padding: 16px 16px; gap: 16px; }
+      .msg { max-width: 90%; }
+      #input-area { padding: 12px 16px; }
+      #brand-sub { display: none; }
+      #clock { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header id="header">
+    <div id="header-left">
+      <div id="brand">QSPORT</div>
+      <div id="brand-sub">· predictions</div>
+    </div>
+    <div id="header-right">
+      <span id="clock"></span>
+      <div id="status" class="offline">
+        <span id="status-dot">●</span>
+        <span id="status-label">HORS LIGNE</span>
+      </div>
+    </div>
+  </header>
+
+  <main id="chat"></main>
+
+  <div id="input-area">
+    <textarea
+      id="message-input"
+      placeholder="Posez une question sur un match..."
+      rows="1"
+      autocomplete="off"
+      spellcheck="false"
+    ></textarea>
+    <button id="send-btn" type="button">ENVOYER</button>
+  </div>
+  <div id="footer-hint">entrée pour envoyer · shift+entrée pour sauter une ligne</div>
+
+  <script>
+    const API_URL = "http://localhost:8000";
+
+    // ── State ──
+    let history = [];
+    let isWaiting = false;
+
+    // ── DOM ──
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const statusEl = document.getElementById('status');
+    const statusLabel = document.getElementById('status-label');
+    const clockEl = document.getElementById('clock');
+
+    // ── Clock ──
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      clockEl.textContent = `${h}:${m}`;
+    }
+
+    // ── Init ──
+    function init() {
+      updateClock();
+      setInterval(updateClock, 30000);
+      appendAIMessage(
+        'Prêt. Posez une question sur un match, par exemple :\n"PSG vs Marseille ce dimanche, qui gagne ?"'
+      );
+      checkHealth();
+      input.focus();
+    }
+
+    // ── Health check ──
+    async function checkHealth() {
+      try {
+        const res = await fetch(`${API_URL}/health`, { method: 'GET' });
+        if (res.ok) {
+          statusEl.className = 'online';
+          statusLabel.textContent = 'EN LIGNE';
+        } else { throw new Error(); }
+      } catch {
+        statusEl.className = 'offline';
+        statusLabel.textContent = 'HORS LIGNE';
+      }
+    }
+
+    // ── Message rendering ──
+    function appendAIMessage(text, sources) {
+      const el = document.createElement('div');
+      el.className = 'msg msg-ai';
+
+      let html = '<div class="msg-bubble">';
+      html += '<div class="msg-prefix">QSPORT<span class="chevron"> ›</span></div>';
+      html += `<div class="msg-content">${formatContent(text)}</div>`;
+
+      if (sources && sources.length > 0) {
+        html += '<div class="msg-sources">';
+        html += '<div class="msg-sources-label">SOURCES</div>';
+        html += '<div class="msg-sources-tags">';
+        sources.forEach(s => {
+          const name = typeof s === 'string' ? s : (s.name || s.title || s.source || JSON.stringify(s));
+          html += `<span class="source-tag">${escapeHTML(name)}</span>`;
+        });
+        html += '</div></div>';
+      }
+
+      html += '</div>';
+      el.innerHTML = html;
+      chat.appendChild(el);
+      scrollToBottom();
+    }
+
+    function appendUserMessage(text) {
+      const el = document.createElement('div');
+      el.className = 'msg msg-user';
+      el.innerHTML = `<div class="msg-bubble"><div class="msg-content">${escapeHTML(text)}</div></div>`;
+      chat.appendChild(el);
+      scrollToBottom();
+    }
+
+    function appendError(text) {
+      const el = document.createElement('div');
+      el.className = 'msg msg-ai msg-error';
+      const badge = '<span class="msg-error-badge">ERREUR</span>';
+      el.innerHTML = `<div class="msg-bubble"><div class="msg-prefix">QSPORT<span class="chevron"> ›</span>${badge}</div><div class="msg-content">${escapeHTML(text)}</div></div>`;
+      chat.appendChild(el);
+      scrollToBottom();
+    }
+
+    // ── Loading ──
+    function showLoading() {
+      const el = document.createElement('div');
+      el.className = 'msg msg-ai msg-loading';
+
+      const steps = [
+        '[■□□] Recuperation du contexte',
+        '[■■□] Analyse en cours',
+        '[■■■] Generation de la reponse'
+      ];
+      const dots = ['.', '..', '...'];
+
+      el.innerHTML = `<div class="msg-bubble"><div class="loading-text">${steps[0]}.</div></div>`;
+      chat.appendChild(el);
+      scrollToBottom();
+
+      let step = 0;
+      let dot = 0;
+      const interval = setInterval(() => {
+        dot = (dot + 1) % 3;
+        if (dot === 0) { step++; if (step >= steps.length) step = steps.length - 1; }
+        const t = el.querySelector('.loading-text');
+        if (t) t.textContent = steps[step] + dots[dot];
+        scrollToBottom();
+      }, 400);
+
+      el._interval = interval;
+      return el;
+    }
+
+    function removeLoading(el) {
+      if (el && el._interval) clearInterval(el._interval);
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    }
+
+    // ── Send ──
+    async function sendMessage() {
+      const text = input.value.trim();
+      if (!text || isWaiting) return;
+
+      isWaiting = true;
+      setInputState(false);
+      appendUserMessage(text);
+      history.push({ role: 'user', content: text });
+      input.value = '';
+      autoResize();
+
+      const loadingEl = showLoading();
+
+      try {
+        const res = await fetch(`${API_URL}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, history: history })
+        });
+        removeLoading(loadingEl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        const answer = data.response || data.answer || data.message || data.content || '';
+
+        let sources = [];
+        if (data.sources && Array.isArray(data.sources)) {
+          sources = data.sources.filter(s => !(s && s.metadata && s.metadata.fallback === true));
+        }
+
+        history.push({ role: 'assistant', content: answer });
+        appendAIMessage(answer, sources.length > 0 ? sources : null);
+        statusEl.className = 'online';
+        statusLabel.textContent = 'EN LIGNE';
+      } catch (err) {
+        removeLoading(loadingEl);
+        appendError('Erreur de connexion au serveur. Vérifiez que le backend est lancé.');
+        statusEl.className = 'offline';
+        statusLabel.textContent = 'HORS LIGNE';
+      }
+
+      isWaiting = false;
+      setInputState(true);
+      input.focus();
+    }
+
+    // ── Helpers ──
+    function setInputState(enabled) {
+      input.disabled = !enabled;
+      sendBtn.disabled = !enabled;
+    }
+
+    function scrollToBottom() {
+      requestAnimationFrame(() => { chat.scrollTop = chat.scrollHeight; });
+    }
+
+    function escapeHTML(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    function formatContent(text) {
+      let h = escapeHTML(text);
+      h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      h = h.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+      h = h.replace(/\n/g, '<br>');
+      return h;
+    }
+
+    function autoResize() {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+    }
+
+    // ── Events ──
+    input.addEventListener('input', autoResize);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+    sendBtn.addEventListener('click', sendMessage);
+
+    init();
+  </script>
+</body>
+</html>
