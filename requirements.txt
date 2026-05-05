@@ -25,3 +25,7 @@ pyarrow
 seaborn
 jupyter
 ipykernel
+undetected-chromedriver
+selenium
+webdriver-manager
+beautifulsoup4
