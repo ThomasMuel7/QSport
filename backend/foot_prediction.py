@@ -23,7 +23,7 @@ MAJOR_LEAGUE_NAMES = {
 }
 
 FOLDER_MODEL = model_path("foot/model")
-FOLDER_MODEL_SIMPLE = model_path("foot/simple")
+FOLDER_MODEL_SIMPLE = model_path("foot/model_simple")
 DATA_FOLDER = data_path("foot")
 
 
