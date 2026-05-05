@@ -1,8 +1,7 @@
 from langchain.tools import tool
-import os
 
 try:
-    from nba_prediction import NBAPredictor
+    from nba_prediction import NBAPredictor, TEAM_MAP
     _nba_predictor = NBAPredictor()
 except Exception as e:
     _nba_predictor = None
@@ -34,7 +33,7 @@ def predict_nba(teams: str) -> str:
             # Cotes NBA
         cotes_str = ""
         if get_match_odds:
-            cotes = get_match_odds("basketball_nba", result['home_team'], result['away_team'])
+            cotes = get_match_odds("basketball_nba", TEAM_MAP.get(result['home_team']), TEAM_MAP.get(result['away_team']))
             if cotes and "error" not in cotes[0] and "message" not in cotes[0]:
                 c = cotes[0]
                 cotes_str = (

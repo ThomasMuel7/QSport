@@ -1,0 +1,11 @@
+              precision    recall  f1-score   support
+
+           0     0.5764    0.8000    0.6701       330
+           1     0.5840    0.5792    0.5816       240
+           2     0.3563    0.1455    0.2067       213
+
+    accuracy                         0.5543       783
+   macro avg     0.5056    0.5082    0.4861       783
+weighted avg     0.5189    0.5543    0.5169       783
+
+N_qubits : 7 | Seed : 42

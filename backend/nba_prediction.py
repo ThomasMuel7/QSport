@@ -34,7 +34,7 @@ import torch
 import torch.nn as nn
 import pennylane as qml
 
-from paths import data_path
+from paths import data_path, model_path
 
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -42,6 +42,7 @@ log = logging.getLogger(__name__)
 
 # ── Chemins ────────────────────────────────────────────────────────────────
 DATA_DIR = data_path("nba")
+MODEL_DIR = model_path("nba")
 
 # ── Mapping trigrammes → noms ───────────────────────────────────────────────
 TEAM_MAP = {
@@ -111,8 +112,9 @@ class NBAPredictor:
         Répertoire contenant les fichiers data/ (pkl, csv).
     """
 
-    def __init__(self, data_dir: str | Path = DATA_DIR):
+    def __init__(self, data_dir: str | Path = DATA_DIR, model_dir: str | Path = MODEL_DIR):
         self.data_dir = Path(data_dir)
+        self.model_dir = Path(model_dir)
         self._load_artifacts()
         self._load_team_stats()
 
@@ -123,9 +125,9 @@ class NBAPredictor:
         log.info("Chargement des modèles...")
 
         # XGBoost
-        with open(self.data_dir / "nba_xgb_clf.pkl", "rb") as f:
+        with open(self.model_dir / "nba_xgb_clf.pkl", "rb") as f:
             self.xgb_clf = pickle.load(f)
-        with open(self.data_dir / "nba_xgb_reg.pkl", "rb") as f:
+        with open(self.model_dir / "nba_xgb_reg.pkl", "rb") as f:
             self.xgb_reg = pickle.load(f)
 
         # Features et scalers
