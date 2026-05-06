@@ -13,6 +13,8 @@
 #   ✅ FEATURE_COLS aligné avec le modèle entraîné
 # ============================================================
 
+from datetime import date
+
 import pandas as pd
 import numpy as np
 import joblib
@@ -423,3 +425,12 @@ def predict_match(player1: str, player2: str,
         "predicted_winner" : winner,
         "confidence"       : confidence,
     }
+
+if __name__ == "__main__":
+    # Exemple de test
+    result = predict_match(
+        player1="Carlos Alcaraz",
+        player2="Jannik Sinner",
+        match_date=date.today().strftime("%Y-%m-%d"),
+    )
+    print(result)

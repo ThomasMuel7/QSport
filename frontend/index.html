@@ -365,7 +365,9 @@
   <div id="footer-hint">entrée pour envoyer · shift+entrée pour sauter une ligne</div>
 
   <script>
-    const API_URL = "http://localhost:8000";
+    const API_URL = window.location.hostname === 'localhost'
+        ? 'http://localhost:8000'
+        : `http://${window.location.hostname}:8000`;
 
     // ── State ──
     let history = [];
@@ -492,50 +494,44 @@
 
     // ── Send ──
     async function sendMessage() {
-      const text = input.value.trim();
-      if (!text || isWaiting) return;
+        const text = input.value.trim();
+        if (!text || isWaiting) return;
 
-      isWaiting = true;
-      setInputState(false);
-      appendUserMessage(text);
-      history.push({ role: 'user', content: text });
-      input.value = '';
-      autoResize();
+        isWaiting = true;
+        setInputState(false);
+        appendUserMessage(text);
+        history.push({ role: 'user', content: text });
+        input.value = '';
+        autoResize();
 
-      const loadingEl = showLoading();
+        const loadingEl = showLoading();
+        try {
+          const res = await fetch(`${API_URL}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text, history: history })
+          });
+          removeLoading(loadingEl);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      try {
-        const res = await fetch(`${API_URL}/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text, history: history })
-        });
-        removeLoading(loadingEl);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const answer = data.response || '';
 
-        const data = await res.json();
-        const answer = data.response || data.answer || data.message || data.content || '';
-
-        let sources = [];
-        if (data.sources && Array.isArray(data.sources)) {
-          sources = data.sources.filter(s => !(s && s.metadata && s.metadata.fallback === true));
+          history.push({ role: 'assistant', content: answer });
+          appendAIMessage(answer);
+          statusEl.className = 'online';
+          statusLabel.textContent = 'EN LIGNE';
+        } catch (err) {
+          removeLoading(loadingEl);
+          appendError('Erreur de connexion au serveur. Vérifiez que le backend est lancé.');
+          statusEl.className = 'offline';
+          statusLabel.textContent = 'HORS LIGNE';
         }
 
-        history.push({ role: 'assistant', content: answer });
-        appendAIMessage(answer, sources.length > 0 ? sources : null);
-        statusEl.className = 'online';
-        statusLabel.textContent = 'EN LIGNE';
-      } catch (err) {
-        removeLoading(loadingEl);
-        appendError('Erreur de connexion au serveur. Vérifiez que le backend est lancé.');
-        statusEl.className = 'offline';
-        statusLabel.textContent = 'HORS LIGNE';
+        isWaiting = false;
+        setInputState(true);
+        input.focus();
       }
-
-      isWaiting = false;
-      setInputState(true);
-      input.focus();
-    }
 
     // ── Helpers ──
     function setInputState(enabled) {

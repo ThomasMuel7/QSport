@@ -15,5 +15,15 @@ scikit-learn
 nba_api
 requests
 joblib
+matplotlib
 catboost
 lightgbm
+optuna
+pyarrow
+seaborn
+jupyter
+ipykernel
+undetected-chromedriver
+selenium
+webdriver-manager
+beautifulsoup4

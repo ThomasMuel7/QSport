@@ -1,6 +1,5 @@
 from langchain.tools import tool
 from datetime import date
-
 import csv
 import os
 
@@ -16,20 +15,12 @@ except Exception as e:
 def resolve_team_name(name: str) -> str:
     return _TEAM_MAPPING.get(name.strip().lower(), name.strip())
 
-
-
 try:
-    from nba_prediction import NBAPredictor, TEAM_MAP
+    from nba_prediction import NBAPredictor
     _nba_predictor = NBAPredictor()
 except Exception as e:
     _nba_predictor = None
     print(f"[tools] NBA predictor non disponible: {e}")
-
-try:
-    from odds import get_match_odds, SPORTS_MAPPING
-except Exception as e:
-    get_match_odds = None
-    print(f"[tools] Odds non disponible: {e}")
 
 try:
     from foot_prediction import predire as predire_foot
@@ -42,7 +33,6 @@ try:
 except Exception as e:
     predire_tennis = None
     print(f"[tools] Tennis predictor non disponible: {e}")
-
 
 @tool
 def predict_nba(teams: str) -> str:
@@ -60,25 +50,14 @@ def predict_nba(teams: str) -> str:
             absent_home=None,
             absent_away=None
         )
-        cotes_str = ""
-        if get_match_odds:
-            cotes = get_match_odds("basketball_nba", result['home_team'], result['away_team'])
-            if cotes and "error" not in cotes[0] and "message" not in cotes[0]:
-                c = cotes[0]
-                cotes_str = (
-                    f" Cotes : {c.get('Cote Home (1)', 'N/A')} (domicile) "
-                    f"/ {c.get('Cote Away (2)', 'N/A')} (exterieur)."
-                )
         return (
             f"Vainqueur predit : {result['winner']}. "
             f"{result['home_team']} : {result['p_home_win']:.0%} de chance de gagner. "
             f"{result['away_team']} : {result['p_away_win']:.0%} de chance de gagner. "
             f"Ecart predit : {result['point_diff_pred']:+.1f} points."
-            f"{cotes_str}"
         )
     except Exception as e:
         return f"Prediction NBA indisponible: {e}"
-
 
 @tool
 def predict_foot(teams: str) -> str:
@@ -101,32 +80,15 @@ def predict_foot(teams: str) -> str:
         prob_home = result.get(home, result.get(list(result.keys())[1], 0))
         prob_away = result.get(away, result.get(list(result.keys())[2], 0))
         prob_nul  = result.get("nul", 0)
-
-        cotes_str = ""
-        if get_match_odds:
-            try:
-                cotes = get_match_odds("soccer_france_ligue_one", home, away)
-                if cotes and "error" not in cotes[0] and "message" not in cotes[0]:
-                    c = cotes[0]
-                    cotes_str = (
-                        f" Cotes : {c.get('Cote Home (1)', 'N/A')} ({home}) "
-                        f"/ {c.get('Cote Draw', 'N/A')} (nul) "
-                        f"/ {c.get('Cote Away (2)', 'N/A')} ({away})."
-                    )
-            except Exception:
-                pass
-
         return (
             f"Prediction{date_str} : "
             f"{home} gagne : {prob_home:.1f}%, "
             f"Match nul : {prob_nul:.1f}%, "
             f"{away} gagne : {prob_away:.1f}%."
-            f"{cotes_str}"
         )
     except Exception as e:
         return f"Prediction football indisponible: {e}"
-
-
+    
 @tool
 def predict_tennis(players: str) -> str:
     """Predit le resultat d'un match de tennis ATP.
@@ -169,3 +131,8 @@ def predict_tennis(players: str) -> str:
         )
     except Exception as e:
         return f"Prediction tennis indisponible: {e}"
+
+if __name__ == "__main__":
+    print(predict_nba("LAL vs GSW"))
+    print(predict_foot("Paris Saint-Germain vs Marseille"))
+    print(predict_tennis("Carlos Alcaraz vs Jannik Sinner sur Clay"))

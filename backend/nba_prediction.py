@@ -135,9 +135,9 @@ class NBAPredictor:
             self.features_xgb = pickle.load(f)
         with open(self.data_dir / "nba_features_qnn.pkl", "rb") as f:
             self.features_qnn = pickle.load(f)
-        with open(self.data_dir / "nba_scaler_xgb.pkl", "rb") as f:
+        with open(self.model_dir / "nba_scaler_xgb.pkl", "rb") as f:
             self.scaler_xgb = pickle.load(f)
-        with open(self.data_dir / "nba_scaler_qnn.pkl", "rb") as f:
+        with open(self.model_dir / "nba_scaler_qnn.pkl", "rb") as f:
             self.scaler_qnn = pickle.load(f)
 
         # NN Classique
@@ -156,14 +156,14 @@ class NBAPredictor:
 
         self.nn_model = _ClassicNN(n_qnn_features)
         self.nn_model.load_state_dict(
-            torch.load(self.data_dir / "nba_nn_classic_v2.pt", weights_only=True)
+            torch.load(self.model_dir / "nba_nn_classic_v2.pt", weights_only=True)
         )
         self.nn_model.eval()
 
         # QNN
         self.qnn_model = HybridQNNv2()
         self.qnn_model.load_state_dict(
-            torch.load(self.data_dir / "nba_qnn_v2_weights.pt", weights_only=True)
+            torch.load(self.model_dir / "nba_qnn_v2_weights.pt", weights_only=True)
         )
         self.qnn_model.eval()
 
