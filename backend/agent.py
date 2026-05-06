@@ -19,8 +19,11 @@ def get_agent():
         return _agent
 
     llm = OllamaLLM(
-        model=os.getenv("OLLAMA_MODEL", "mistral"),
-        base_url=os.getenv("OLLAMA_HOST", "http://ollama:11434")
+    model="mistral",
+    base_url="https://machinery-twice-discounted-mothers.trycloudflare.com",
+    headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    },
     )
     memory = ConversationBufferWindowMemory(
         memory_key="chat_history",

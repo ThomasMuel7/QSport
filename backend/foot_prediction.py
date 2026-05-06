@@ -350,7 +350,7 @@ def predire_random_forest(match_df, is_simple):
 
     folder = FOLDER_MODEL_SIMPLE if is_simple else FOLDER_MODEL
     
-    with open(folder + '/rf.pkl', 'rb') as f:
+    with open(folder / 'rf.pkl', 'rb') as f:
         model = pickle.load(f)
         
     colonnes_attendues = model.feature_names_in_ 
@@ -368,10 +368,10 @@ def predire_catboost(match_df, is_simple):
     from catboost import CatBoostClassifier
     print(" Utilisation du modèle : CatBoost")
 
-    folder = "model_simple" if is_simple else "model" 
+    folder = FOLDER_MODEL_SIMPLE if is_simple else FOLDER_MODEL 
     
     model = CatBoostClassifier()
-    model.load_model(folder + '/catboost.cbm')
+    model.load_model(folder / 'catboost.cbm')
     
     colonnes_attendues = model.feature_names_ 
     donnees_alignees = {col: match_df.iloc[0][col] if col in match_df.columns else np.nan for col in colonnes_attendues}
@@ -446,9 +446,9 @@ def predire_qnn(match_df, is_simple):
     folder = FOLDER_MODEL_SIMPLE if is_simple else FOLDER_MODEL
 
     # 1. Chargement des métadonnées (Scaler, Encodeur, Colonnes)
-    with open(folder + '/qnn_cols.pkl', 'rb') as f: num_cols = pickle.load(f)
-    with open(folder + '/qnn_scaler.pkl', 'rb') as f: scaler_q = pickle.load(f)
-    with open(folder + '/qnn_le.pkl', 'rb') as f: le = pickle.load(f)
+    with open(folder / 'qnn_cols.pkl', 'rb') as f: num_cols = pickle.load(f)
+    with open(folder / 'qnn_scaler.pkl', 'rb') as f: scaler_q = pickle.load(f)
+    with open(folder / 'qnn_le.pkl', 'rb') as f: le = pickle.load(f)
 
     # 2. Alignement des données du match avec les colonnes de l'entraînement
     donnees_alignees = {col: match_df.iloc[0][col] if col in match_df.columns else 0.0 for col in num_cols}
@@ -461,7 +461,7 @@ def predire_qnn(match_df, is_simple):
 
     # 4. Chargement et inférence du modèle
     model = HybridQNN(n_features=len(num_cols)).float()
-    model.load_state_dict(torch.load(folder + '/quantum.pth', map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load(folder / 'quantum.pth', map_location=torch.device('cpu')))
     model.eval()
 
     with torch.no_grad():
@@ -588,7 +588,7 @@ def predire(team_home, team_away):
         equipe_b = team_away
 
     # On va itérer sur tous les modèles puis prendre la moyenne des probas
-    modeles = ["xgboost", "random forest", "catboost"]
+    modeles = ["xgboost", "catboost"]
 
     res = {
         0 : 0,
