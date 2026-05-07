@@ -142,7 +142,9 @@ exploration/
 │   ├── data_merge.ipynb                # Fusion et nettoyage
 │   ├── data_preparation.ipynb          # Préparation avant fusion
 │   ├── feature_engineering.ipynb       # Features complexes + visualisation + modèles ML
-│   └── feature_engineering_simple.ipynb# Features simplifiées (backup)
+│   ├── feature_engineering_simple.ipynb# Features simplifiées (backup)
+│   ├── whoScoredScrapper.ipynb         # Scrapping des données de WhoScored
+│   └── whoScoredCleaner.ipynb          # Nettoyage des données de WhoScored
 │
 ├── nba/
 │   ├── data_scrapping_nba.ipynb        # Scrapping NBA API + ESPN
@@ -203,14 +205,20 @@ jupyter kernelspec list
    - Open-Meteo API (météo historique), Nominatim (géocodage des stades), Bzzoir API (arbitres & managers)
    - Produit les fichiers CSV bruts avant préparation
 
-2. **data_preparation.ipynb** — Nettoyage des données contextuelles
+2. **whoScoredScrapper.ipynb** — Récupération des données de WhoScored (statistiques détaillées par équipe)
+   - Scrapping des 5 championnats majeurs (2021-2026)
+
+3. **whoScoredCleaner.py** - Nettoyage des données WhoScored (gestion des NaN, typage, normalisation des noms)
+   - Création du fichier `meteo.csv` prêt pour la fusion
+
+4. **data_preparation.ipynb** — Nettoyage des données contextuelles
    - Traitement des données non liées aux équipes : arbitre, stade, météo, managers
    - Produit : `data/foot/dataset_final.csv`
 
-3. **data_merge.ipynb** — Fusion des sources
+5. **data_merge.ipynb** — Fusion des sources
    - Jointure intelligente entre WhoScored et `dataset_final`
 
-4. **feature_engineering.ipynb** — Feature engineering + entraînement des modèles
+6. **feature_engineering.ipynb** — Feature engineering + entraînement des modèles
 
 **Défis pratiques :**
 
@@ -280,212 +288,6 @@ jupyter kernelspec list
 - 📊 **Validation temporelle stricte** : train passé, test futur
 
 ---
-
-## Architecture et pipelines
-
-### Pipeline Football
-
-```
-
-┌─────────────────────────────────────────────────┐
-│ COLLECTE DE DONNÉES │
-├─────────────────────────────────────────────────┤
-│ • whoScored (statistiques détaillées par équipe) │
-│ • FBref (matchs à venir) │
-│ • TransferMarkt (entraîneurs) │
-│ • StatsHub (données supplémentaires) │
-│ • Open-Meteo API (météo historique) │
-│ • Scrapping manuel (arbitres, stades, managers) │
-│
-└────────────────────┬────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────┐
-│ NETTOYAGE ET FUSION │
-├─────────────────────────────────────────────────┤
-│ • Fusion des fichiers sources │
-│ • Gestion des valeurs manquantes │
-│ • Normalisation des noms (équipes, joueurs) │
-│ • Conversion des types de données │
-│ │
-│ Résultat : data/foot/processed.csv │
-└────────────────────┬────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────┐
-│ FEATURE ENGINEERING │
-├─────────────────────────────────────────────────┤
-│ • Repos des équipes, dynamique actuelle │
-│ • Historique head-to-head (global & domicile) │
-│ • Données contextuelles (arbitre, stade, météo) │
-│ • Indicateurs de forme (momentum, variance) │
-│ │
-│ Résultat : data/foot/dataset_final.csv │
-│ Features : 50+ features par match │
-└────────────────────┬────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────┐
-│ ENTRAÎNEMENT DES MODÈLES │
-├─────────────────────────────────────────────────┤
-│ • Split temporel : train (2021-24), test (2025) │
-│ │
-│ Modèles testés : │
-│ ├─ XGBoost (CPU optimisé) │
-│ ├─ CatBoost (gestion des catégories) │
-│ ├─ Random Forest (ensemble) │
-│ └─ QNN hybride (classique + quantique) │
-│ │
-│ Résultat : models/foot/\*.pkl │
-│ Accuracy : 50-55% (baseline industrie : 60%) │
-└────────────────────┬────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────┐
-│ PRÉDICTION EN PRODUCTION │
-├─────────────────────────────────────────────────┤
-│ foot_prediction.py::predict_foot() │
-│ • Entrée : noms des 2 équipes │
-│ • Récupère le prochain match en championnat │
-│ • Requête API pour les données manquantes │
-│ • Inférence sur 2 modèles (xgboost, catboost) │
-│ • Sortie : probabilités moyennes (V/N/D) │
-│ │
-│ Modèles simplifiés si pas de match programmé │
-│ (absence de météo, arbitre, stade) │
-└─────────────────────────────────────────────────┘
-
-```
-
-### Pipeline NBA
-
-```
-
-┌─────────────────────────────────────────────────┐
-│ COLLECTE DE DONNÉES (NBA API + ESPN) │
-├─────────────────────────────────────────────────┤
-│ • 3 935 matchs sur 3 saisons (2022-25) │
-│ • Stats avancées par match (Net Rating, eFG%) │
-│ • Stats joueurs détaillées │
-│ • Saison 2025-26 scrappée séparément │
-│ • Données blessés (ESPN en temps réel) │
-│ │
-│ Résultat : data/nba/nba_processed.csv │
-└────────────────────┬────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────┐
-│ FEATURE ENGINEERING TEMPOREL │
-├─────────────────────────────────────────────────┤
-│ • Rolling averages N matchs avec shift │
-│ • AUCUNE stat du match en cours (data leakage) │
-│ │
-│ 16 Features finales : │
-│ ├─ Net Rating différentiel (le plus prédictif) │
-│ ├─ Efficacité de tir (eFG%) │
-│ ├─ Rebonds défensifs │
-│ ├─ Forme récente │
-│ ├─ Contexte (back-to-back, jours repos) │
-│ └─ Ajustement blessés (EPA par minutes perdues) │
-│ │
-│ Résultat : data/nba/features.pkl │
-└────────────────────┬────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────┐
-│ ENTRAÎNEMENT DES MODÈLES │
-├─────────────────────────────────────────────────┤
-│ • XGBoost classique │
-│ • CatBoost │
-│ • QNN hybride classique-quantique │
-│ │
-│ Résultat : models/nba/\*.pkl │
-│ ⚠️ Le QNN obtient les meilleures performances ! │
-│ (Log Loss : 0.627 vs 0.644-0.647) │
-└────────────────────┬────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────┐
-│ PRÉDICTION EN PRODUCTION │
-├─────────────────────────────────────────────────┤
-│ nba_prediction.py::predict_nba() │
-│ • Récupération auto des blessés (ESPN) │
-│ • Pénalité Net Rating basée sur minutes perdues │
-│ • Sortie : probabilité, écart prédit, cotes │
-└─────────────────────────────────────────────────┘
-
-```
-
-### Pipeline Tennis
-
-```
-
-┌─────────────────────────────────────────────────┐
-│ COLLECTE DE DONNÉES (TennisMyLife) │
-├─────────────────────────────────────────────────┤
-│ • 7 fichiers CSV annuels (2020-2026) │
-│ • 17 163 matchs ATP │
-│ • ~200 joueurs │
-│ │
-│ Données par match : │
-│ ├─ Tournoi (surface, niveau, conditions) │
-│ ├─ Joueurs (classement, points, âge, main) │
-│ └─ Stats service détaillées │
-│ │
-│ Résultat : data/tennis/atp_clean.csv │
-└────────────────────┬────────────────────────────┘
-│
-┌────────────────────▼────────────────────────────┐
-│ FEATURE ENGINEERING AVANCÉE (étape critique!) │
-├─────────────────────────────────────────────────┤
-│ ⚠️ DÉCALAGE TEMPOREL STRICT (pas de leakage) │
-│ │
-│ Moyennes glissantes par joueur : │
-│ ├─ Rolling 5, 10, 20 matchs │
-│ ├─ Taux victoire récent │
-│ ├─ Service stats (ace%, 1st serve win%) │
-│ ├─ Performance sous pression │
-│ └─ Taux victoire par surface │
-│ │
-│ Features d'historique direct : │
-│ ├─ Head-to-head global │
-│ └─ Head-to-head par surface │
-│ │
-│ Features synthétiques (très utiles !) : │
-│ ├─ Ratio classement (mieux que différence) │
-│ ├─ Momentum (récent vs long terme) │
-│ ├─ Dominance service (ace/aces concédés) │
-│ └─ Résistance sous pression │
-│ │
-│ Résultat : 94 features × 34 326 lignes │
-│ (2 lignes par match = symétrie des classes) │
-└────────────────────┬────────────────────────────┘
-│
-┌────────────────────▼────────────────────────────┐
-│ OPTIMISATION BAYÉSIENNE (Optuna) │
-├─────────────────────────────────────────────────┤
-│ • Algorithme TPE : 80 essais │
-│ • TimeSeriesSplit 5-folds (respecte l'ordre) │
-│ │
-│ Modèles optimisés : │
-│ ├─ XGBoost │
-│ ├─ LightGBM ⭐ (meilleur modèle sélectionné) │
-│ └─ CatBoost │
-│ │
-│ Split temporel strict : │
-│ ├─ Train : 2020-2023 │
-│ ├─ Validation : 2024 │
-│ └─ Test : 2025-2026 │
-│ │
-│ Résultat : models/tennis/lightgbm_final.pkl │
-└────────────────────┬────────────────────────────┘
-│
-┌────────────────────▼────────────────────────────┐
-│ PRÉDICTION EN PRODUCTION │
-├─────────────────────────────────────────────────┤
-│ tennis_prediction.py │
-│ • Reconstruction en temps réel des features │
-│ • Utilise les CSV de données historiques │
-│ • Sortie : probabilité victoire pour chaque J. │
-│ │
-│ Résultat : Accuracy 76.8% (baseline : 73.0%) │
-│ AUC : 0.867 (très bon calibrage probabilités) │
-└─────────────────────────────────────────────────┘
-
-```
 
 ## Modélisation et entraînement
 
