@@ -564,6 +564,142 @@ Chaque sport = collecte → feature engineering → modélisation → agent LLM
 Zéro refonte majeure du pipeline
 ```
 
+---
+
+## Étendre le projet
+
+### Modifier le comportement de l'agent
+
+Le comportement de l'agent est entièrement contrôlé par le `SYSTEM_PROMPT` dans `agent.py`. C'est le premier levier à modifier pour changer la façon dont l'agent interprète les requêtes ou formate ses réponses.
+
+```python
+# agent.py
+SYSTEM_PROMPT = """You are QSport, an expert sports prediction assistant.
+...
+"""
+```
+
+**Exemples de modifications utiles :**
+
+Changer la langue de réponse par défaut :
+
+```python
+# Remplacer dans SYSTEM_PROMPT
+"Be concise and structured."
+# par
+"Always respond in French, be concise and structured."
+```
+
+Ajouter un nouveau sport reconnu :
+
+```python
+# Dans la section STEP 1: IDENTIFICATION, ajouter
+"- For rugby: use full team names (ex: 'Stade Toulousain', 'Racing 92')."
+
+# Dans STEP 2: TOOL CALL, ajouter
+"- predict_rugby → for ANY rugby match, no matter what."
+
+# Dans EXAMPLES, ajouter
+"- 'Toulouse vs Racing' → call predict_rugby('Stade Toulousain vs Racing 92')"
+```
+
+Modifier le niveau de verbosité des réponses :
+
+```python
+# Remplacer
+"Be concise and structured."
+# par
+"Always include a short explanation of the key factors driving the prediction."
+```
+
+### Changer le modèle LLM
+
+Le modèle est configuré exclusivement via `.env` — aucune modification de code nécessaire :
+
+```env
+OLLAMA_MODEL=mistral        # Plus rapide, moins précis
+OLLAMA_MODEL=llama3.1:8b    # Meilleur équilibre (défaut)
+OLLAMA_MODEL=llama2:13b     # Plus précis, trop lourd pour T4
+```
+
+Pour les paramètres fins du modèle (température, etc.), modifier `agent.py` :
+
+```python
+# agent.py
+llm = ChatOllama(
+    model=os.getenv("OLLAMA_MODEL", "mistral-nemo"),
+    base_url=os.getenv("OLLAMA_HOST"),
+    temperature=0.1,   # 0.0 = déterministe, 1.0 = créatif
+)
+```
+
+### Ajouter un nouveau tool
+
+Un tool est une fonction Python décorée avec `@tool` que l'agent peut appeler. Voici comment en ajouter un de A à Z.
+
+#### Étape 1 — Créer la logique métier
+
+Créer un nouveau fichier (ex: `rugby_prediction.py`) avec une fonction exposant le résultat :
+
+```python
+# rugby_prediction.py
+def predict_rugby(team1: str, team2: str) -> dict:
+    # Charger le modèle, construire les features, inférer...
+    return {
+        "winner": team1,
+        "p_home_win": 0.62,
+        "p_away_win": 0.38,
+    }
+```
+
+#### Étape 2 — Déclarer le tool dans tools.py
+
+```python
+# tools.py
+from langchain.tools import tool
+
+try:
+    from rugby_prediction import predict_rugby as predire_rugby
+except Exception as e:
+    predire_rugby = None
+    print(f"[tools] Rugby predictor non disponible: {e}")
+
+@tool
+def predict_rugby(teams: str) -> str:
+    """Predit le resultat d'un match de rugby Top 14 ou Champions Cup.
+    Format: 'EQUIPE1 vs EQUIPE2' (ex: 'Stade Toulousain vs Racing 92')."""
+    code
+```
+
+> **Important :** La docstring du `@tool` est ce que le LLM lit pour décider quand appeler ce tool. Elle doit être claire, courte, et mentionner le format d'entrée attendu.
+
+#### Étape 3 — Enregistrer le tool dans l'agent
+
+```python
+# agent.py
+from tools import predict_nba, predict_foot, predict_tennis, predict_rugby  # Ajouter ici
+
+tools = [predict_nba, predict_foot, predict_tennis, predict_rugby]  # Ajouter ici
+```
+
+#### Étape 4 — Mettre à jour le prompt système
+
+```python
+# agent.py — dans SYSTEM_PROMPT, section STEP 2
+"- predict_rugby → for ANY rugby match, no matter what."
+
+# Section EXAMPLES
+"- 'Toulouse vs Racing' → call predict_rugby('Stade Toulousain vs Racing 92')"
+```
+
+#### Étape 5 — Rebuild le backend
+
+```bash
+docker compose up -d --build backend
+```
+
+---
+
 ### Impact global
 
 Q-Sport démontre que même **sans données propriétaires**, une approche rigoureuse en :
